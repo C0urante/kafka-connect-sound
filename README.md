@@ -88,11 +88,11 @@ Additional assumptions:
 # Build the project
 mvn clean package
 
-# Create the topic that the connectors will write to and read from (important: only need one partition)
+# Create the topic that the connector will read from (important: only need one partition)
 kafka-topics --zookeeper localhost:2181 --create --topic music-mp3 --partitions 1 --replication-factor 1
 
-# Run the microphone source connector, and make some noise! Close down the worker with ctrl+C when you're finished
-connect-standalone config/connect-standalone.properties config/kafka-connect-microphone.properties
+# Read an audio file into Kafka
+kafka-binary-producer --topic music-mp3 --broker-list localhost:9092 < src/test/resources/audio/music.mp3
 
 # Run the speakers sink connector, and listen to some music!
 connect-standalone config/connect-standalone.properties config/kafka-connect-speakers-music.properties
