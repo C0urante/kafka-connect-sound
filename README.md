@@ -28,7 +28,9 @@ already have `SoX` installed on your machine.
 
 ### Via Confluent Hub
 
-TODO
+The connector is available on
+[Confluent Hub](https://www.confluent.io/hub/C0urante/kafka-connect-sound). Instructions on how to
+download it and install it onto your Kafka Connect worker(s) can be found there.
 
 ### Local build
 
@@ -128,10 +130,10 @@ a PR without filing an issue first and tag @C0urante for review.
 - [x] Sink connector that writes to speakers
 - [x] Source connector that reads from a microphone
 - [x] Easy way to read static audio files into Kafka ([Kafka Tools])
+- [x] Publish to [Confluent Hub]
 - [ ] Add configurability for location of sox executable
 - [ ] Look into streaming consecutive separate files into same sink task
 - [ ] Look into picking up from the middle of an audio file (currently breaks because headers are not present)
-- [ ] Publish to [Confluent Hub]
 - [ ] Maybe write some nifty SMTs, streams jobs, and/or [ksqlDB] queries to do things like distortion, voice recognition, etc.?
 
 PRs welcome and encouraged!
