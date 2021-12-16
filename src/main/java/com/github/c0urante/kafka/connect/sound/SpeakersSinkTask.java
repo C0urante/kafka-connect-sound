@@ -24,17 +24,29 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class SpeakersSinkTask extends SinkTask {
 
     private static final Logger log = LoggerFactory.getLogger(SpeakersSinkTask.class);
 
-    private ByteBuffer buffer = ByteBuffer.allocate(1024);
+    private volatile boolean stopped;
+    private AtomicReference<ConnectException> writeThreadFailure;
+    private ByteBuffer buffer;
+    private BlockingQueue<byte[]> readyToWrite;
     private Process outputProcess;
+    private Thread writeThread;
 
     @Override
     public void start(Map<String, String> props) {
         SpeakersSinkConnectorConfig config = new SpeakersSinkConnectorConfig(props);
+
+        stopped = false;
+        writeThreadFailure = new AtomicReference<>();
+        buffer = ByteBuffer.allocate(1024);
+        readyToWrite = new ArrayBlockingQueue<>(10);
 
         try {
             log.debug("Starting output process");
@@ -50,15 +62,25 @@ public class SpeakersSinkTask extends SinkTask {
         } catch (IOException e) {
             throw new ConnectException("Unable to build output process");
         }
+
+        log.debug("Starting write thread");
+        writeThread = new Thread(this::writeLoop);
+        writeThread.setDaemon(true);
+        writeThread.start();
     }
 
     @Override
     public void put(Collection<SinkRecord> records) {
-        log.debug("Received {} records", records.size());
+        ConnectException exception = writeThreadFailure.get();
+        if (exception != null) {
+            throw exception;
+        }
+
+        log.debug("Received {} records in put", records.size());
         for (SinkRecord record : records) {
             Object value = record.value();
             if (value instanceof Byte) {
-                bufferSample((Byte) value);
+                bufferSamples(new byte[] { (Byte) value });
             } else if (value instanceof Byte[] || value instanceof byte[]) {
                 bufferSamples((byte[]) value);
             } else if (value instanceof ByteBuffer) {
@@ -73,9 +95,17 @@ public class SpeakersSinkTask extends SinkTask {
 
     @Override
     public void stop() {
+        log.debug("Interrupting write thread");
+        writeThread.interrupt();
+
         log.debug("Destroying output process");
-        outputProcess.destroy();
-        outputProcess = null;
+        try {
+            outputProcess.destroy();
+        } catch (Throwable t) {
+            log.warn("Error while attempting to destroy output process", t);
+        } finally {
+            outputProcess = null;
+        }
     }
 
     @Override
@@ -95,10 +125,6 @@ public class SpeakersSinkTask extends SinkTask {
         return Collections.emptyMap();
     }
 
-    private void bufferSample(byte sample) {
-        bufferSamples(new byte[] { sample });
-    }
-
     private void bufferSamples(byte[] samples) {
         log.trace("Received {} samples in Kafka record", samples.length);
 
@@ -107,8 +133,7 @@ public class SpeakersSinkTask extends SinkTask {
             log.trace("Number of samples ({}) is greater than or equal to remaining space ({}) in buffer", samples.length, buffer.remaining());
             i = buffer.remaining();
             buffer.put(samples, 0, buffer.remaining());
-            writeSamples(buffer.array());
-            buffer.clear();
+            putBufferedSamples();
         } else {
             i = 0;
         }
@@ -116,23 +141,55 @@ public class SpeakersSinkTask extends SinkTask {
         while (samples.length - i >= buffer.capacity()) {
             log.trace("Number of remaining samples ({}) is greater than or equal to capacity ({}) of buffer", samples.length - i, buffer.capacity());
             buffer.put(samples, i, buffer.capacity());
-            writeSamples(buffer.array());
-            buffer.clear();
+            putBufferedSamples();
             i += buffer.capacity();
         }
 
         if (i < samples.length) {
             log.trace("Buffering {} remaining samples", samples.length - i);
             buffer.put(samples, i, samples.length - i);
+            putBufferedSamples();
         }
     }
 
-    private void writeSamples(byte[] samples) {
-        log.trace("Writing samples: {}", Arrays.toString(samples));
+    private void putBufferedSamples() {
+        byte[] samples = buffer.array();
+        // Have to clone the contents of the buffer in order to prevent subsequent buffering from mutating it
+        byte[] samplesClone = new byte[samples.length];
+        System.arraycopy(samples, 0, samplesClone, 0, samplesClone.length);
         try {
-            outputProcess.getOutputStream().write(samples);
-        } catch (IOException e) {
-            throw new ConnectException("Failed to write to output stream", e);
+            readyToWrite.put(samplesClone);
+        } catch (InterruptedException e) {
+            // This shouldn't happen; if it does, safer to fail the task than to continue running
+            throw new ConnectException("Interrupted while inserting samples into buffer queue");
+        }
+        buffer.clear();
+    }
+
+    private void writeLoop() {
+        try {
+            while (!stopped) {
+                byte[] samples;
+                try {
+                    samples = readyToWrite.take();
+                } catch (InterruptedException e) {
+                    log.debug("Write thread interrupted; will exit if task has been stopped", e);
+                    continue;
+                }
+                playSamples(samples);
+            }
+        } catch (Throwable t) {
+          if (stopped) {
+              log.debug("Ignoring failure in write thread as task has already stopped", t);
+          } else {
+              writeThreadFailure.compareAndSet(null, new ConnectException("Unexpected exception in write thread", t));
+          }
         }
     }
+
+    private void playSamples(byte[] samples) throws IOException {
+        log.trace("Playing samples: {}", Arrays.toString(samples));
+        outputProcess.getOutputStream().write(samples);
+    }
+
 }
