@@ -8,29 +8,21 @@ implemented on top of the [Kafka Connect] framework
 1. [Installation](#installation)
 1. [Configuration](#configuration)
 1. [Quickstart](#quickstart)
-1. [Offset Tracking](#offset-tracking)
 1. [Data Format](#data-format)
+1. [Offsets Tracking](#offsets-tracking)
 1. [Issue Tracking](#issue-tracking)
 1. [TODO](#todo)
 
 ## Overview
 
-These connectors are essentially thin wrappers around [SoX] that work by invoking its `play` and
-`rec` commands.
+These connectors use the [Java sound API] available in the standard library to record and play
+headerless audio of various formats.
 
-In order to run either connector, you must have `SoX` installed onto your machine and available on
-the worker's `$PATH` with the names `play` and `rec`. See the [SoX Installation] page if you do not
-already have `SoX` installed on your machine. 
+Note that an earlier version of these connectors required [SoX] to run; current versions do not.
 
 
 ## Installation
 
-
-### Via Confluent Hub
-
-The connector is available on
-[Confluent Hub](https://www.confluent.io/hub/C0urante/kafka-connect-sound). Instructions on how to
-download it and install it onto your Kafka Connect worker(s) can be found there.
 
 ### Local build
 
@@ -43,8 +35,18 @@ mvn package
 and then copying and unzipping the zip archive generated in the `target/components/packages`
 directory onto the plugin path or classpath for your Kafka Connect worker(s).
 
-## Configuration
+### Maven Central
 
+In the near future, new releases will be published to  [Maven Central]. This is
+currently blocked on receiving permission to publish to the `io.github.c0urante`
+namespace, which should be granted in the next few days (those folks tend to be
+very responsive).
+
+### Confluent Hub
+Releases to Confluent Hub have been discontinued.
+
+
+## Configuration
 
 [Microphone Source Docs](docs/source-connector-config.md)
 
@@ -52,7 +54,8 @@ directory onto the plugin path or classpath for your Kafka Connect worker(s).
 
 [Speakers Sink Docs](docs/sink-connector-config.md)
 
-[Speakers Sink Example](config/kafka-connect-speakers-voice.properties)
+[Speakers Sink Example](config/kafka-connect-speakers.properties)
+
 
 ## Quickstart
 
@@ -75,7 +78,7 @@ kafka-topics --zookeeper localhost:2181 --create --topic voice-wav --partitions 
 connect-standalone config/connect-standalone.properties config/kafka-connect-microphone.properties
 
 # Run the speakers sink connector, and listen as the noise you made is played back out your speakers!
-connect-standalone config/connect-standalone.properties config/kafka-connect-speakers-voice.properties
+connect-standalone config/connect-standalone.properties config/kafka-connect-speakers.properties
 ```
 
 ### Sink only: import an audio file into Kafka, and play it through your speakers
@@ -89,10 +92,14 @@ Additional assumptions:
 mvn clean package
 
 # Create the topic that the connector will read from (important: only need one partition)
-kafka-topics --zookeeper localhost:2181 --create --topic music-mp3 --partitions 1 --replication-factor 1
+kafka-topics --bootstrap-server localhost:9092 --create --topic queen --partitions 1 --replication-factor 1
 
 # Read an audio file into Kafka
-kafka-binary-producer --topic music-mp3 --broker-list localhost:9092 < src/test/resources/audio/music.mp3
+# Recorded with SoX, using the default audio format (sample size, channels, etc.) for the connectors:
+#   sox --buffer 2048 -d -t raw -b 16 -L -e signed-integer -r 44100 -c 1 src/test/resources/audio/queen.raw
+# To play this with SoX for debugging purposes:
+#   sox --buffer 2048 -t raw -b 16 -L -e signed-integer -r 44100 -c 1 src/test/resources/audio/queen.raw -d
+kafka-binary-producer --topic queen --broker-list localhost:9092 < src/test/resources/audio/queen.raw
 
 # Run the speakers sink connector, and listen to some music!
 connect-standalone config/connect-standalone.properties config/kafka-connect-speakers-music.properties
@@ -116,6 +123,54 @@ Because these connectors are hardcoded to work exclusively with bytes and byte a
 recommended that the `ByteArrayConverter` be used with them unless there are upstream or downstream
 limitations that require data to be serialized in a specific format.
 
+
+## Offsets Tracking
+
+### Behavior
+These connectors do not perform offsets tracking.
+
+For the source connector, this means that its tasks will only record audio produced in real
+time when they are running. Rebalances, worker restarts, and task failures will all run the
+risk of dropping audio.
+
+For the sink connector, this means that its tasks will always resume reading from Kafka
+based on the value for their consumers' [auto.offset.reset] property. For Kafka Connect,
+the default behavior is to read from the beginning of topics. To override this for all sink
+connectors on a cluster and cause them to read from the ends of topics, add this property
+to your Kafka Connect worker config file:
+```properties
+consumer.auto.offset.reset = latest
+```
+
+And, for Kafka Connect clusters version 3.0.0 and beyond, you can override this for a
+single sink connector at a time by adding this property to the connector's config file:
+```properties
+consumer.override.auto.offset.reset = latest
+```
+(for standalone Connect workers)
+
+```json
+{
+  "consumer.override.auto.offset.reset": "latest"
+}
+```
+(for distributed Connect clusters)
+
+### Rationale
+
+For the source connector, this is a matter of feasibility: we can't go back in time
+and re-record audio that we failed to record while a task wasn't running.
+
+For the sink connector, we could track the offsets of records that we were able to
+successfully write to the operating system, and commit those periodically. However,
+the implementation complexity of this would be non-trivial since a single large record may
+be broken down into several buffers that are written individually to the OS, and several
+smaller records may be grouped together into a single buffer. Additionally, there's no
+guarantee that audio that has been dispatched to the OS has actually been played out
+of the speakers on the machine. We could possibly look into tracking this more precisely,
+but it doesn't seem worth the bother.
+
+
 ## Issue Tracking
 
 Issues are tracked on GitHub. If there's a problem you're running into
@@ -125,23 +180,21 @@ open an issue.
 If there's a small bug or typo that you'd like to fix, feel free to open
 a PR without filing an issue first and tag @C0urante for review.
 
+
 ## TODO
 
 - [x] Sink connector that writes to speakers
 - [x] Source connector that reads from a microphone
 - [x] Easy way to read static audio files into Kafka ([Kafka Tools])
-- [x] Publish to [Confluent Hub]
-- [ ] Add configurability for location of sox executable
-- [ ] Look into streaming consecutive separate files into same sink task
-- [ ] Look into picking up from the middle of an audio file (currently breaks because headers are not present)
-- [ ] Maybe write some nifty SMTs, streams jobs, and/or [ksqlDB] queries to do things like distortion, voice recognition, etc.?
+- [ ] Publish to [Maven Central]
 
 PRs welcome and encouraged!
 
 [Kafka Connect]: https://docs.confluent.io/current/connect
 [Apache Kafka]: https://kafka.apache.org
-[Confluent Hub]: https://confluent.io/hub
+[Maven Central]: https://search.maven.org
 [SoX]: http://sox.sourceforge.net
-[SoX Installation]: https://sourceforge.net/projects/sox/files/sox
 [Kafka Tools]: https://github.com/C0urante/kafka-tools
 [ksqlDB]: https://github.com/confluentinc/ksql
+[Java sound API]: https://docs.oracle.com/javase/8/docs/technotes/guides/sound/programmer_guide/contents.html
+[auto.offset.reset]: https://kafka.apache.org/documentation.html#consumerconfigs_auto.offset.reset

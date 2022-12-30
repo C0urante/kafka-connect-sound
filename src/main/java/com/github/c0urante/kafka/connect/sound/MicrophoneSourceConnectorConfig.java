@@ -10,73 +10,61 @@ package com.github.c0urante.kafka.connect.sound;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Map;
 
-public class MicrophoneSourceConnectorConfig extends AbstractConfig {
+import static org.apache.kafka.common.config.ConfigDef.Importance;
+import static org.apache.kafka.common.config.ConfigDef.Type;
 
-    public static final String ENCODING_CONFIG = "encoding";
-    public static final String ENCODING_DEFAULT = "wav";
-    public static final String ENCODING_DOC = "The encoding schema for the audio.";
+public class MicrophoneSourceConnectorConfig extends AbstractConfig {
 
     public static final String TOPIC_CONFIG = "topic";
     public static final String TOPIC_DOC = "The Kafka topic to write to.";
 
-    public static final String PRINT_STDERR_CONFIG = "print.stderr";
-    public static final boolean PRINT_STDERR_DEFAULT = false;
-    public static final String PRINT_STDERR_DOC =
-        "Whether to print the stderr for the invoked process to the console";
+    public static final String PARTITION_CONFIG = "partition";
+    public static final int PARTITION_DEFAULT = 0;
+    public static final String PARTITION_DOC = "The partition of the Kafka topic to write to";
 
-
-    public static final ConfigDef CONFIG_DEF = new ConfigDef()
-            .define(
-                    ENCODING_CONFIG,
-                    ConfigDef.Type.STRING,
-                    ENCODING_DEFAULT,
-                    ConfigDef.Importance.HIGH,
-                    ENCODING_DOC
-            ).define(
-                    TOPIC_CONFIG,
-                    ConfigDef.Type.STRING,
-                    ConfigDef.Importance.HIGH,
-                    TOPIC_DOC
-            ).define(
-                    PRINT_STDERR_CONFIG,
-                    ConfigDef.Type.BOOLEAN,
-                    PRINT_STDERR_DEFAULT,
-                    ConfigDef.Importance.LOW,
-                    PRINT_STDERR_DOC
-            );
-
-    public MicrophoneSourceConnectorConfig(Map<?, ?> props) {
-        super(CONFIG_DEF, props);
+    public static ConfigDef configDef() {
+        ConfigDef result = new ConfigDef()
+                .define(
+                        TOPIC_CONFIG,
+                        Type.STRING,
+                        Importance.HIGH,
+                        TOPIC_DOC
+                ).define(
+                        PARTITION_CONFIG,
+                        Type.INT,
+                        PARTITION_DEFAULT,
+                        Importance.LOW,
+                        PARTITION_DOC
+                );
+        return AudioConfig.define(result);
     }
 
-    public String encoding() {
-        return getString(ENCODING_CONFIG);
+    private final AudioConfig audioConfig;
+
+    public MicrophoneSourceConnectorConfig(Map<?, ?> props) {
+        super(configDef(), props);
+        this.audioConfig = new AudioConfig(props);
+    }
+
+    public AudioConfig audio() {
+        return audioConfig;
     }
 
     public String topic() {
         return getString(TOPIC_CONFIG);
     }
 
-    public ProcessBuilder.Redirect stderr() {
-        return redirect(getBoolean(PRINT_STDERR_CONFIG));
-    }
-
-    private ProcessBuilder.Redirect redirect(boolean print) {
-        return print ? ProcessBuilder.Redirect.INHERIT : ProcessBuilder.Redirect.PIPE;
-
-    }
-
-
-    public static void main(String[] args) throws FileNotFoundException {
+    public static void main(String[] args) throws IOException {
         OutputStream out;
         if (args.length == 1 && !args[0].equals("-")) {
-            out = new FileOutputStream(args[0]);
+            out = Files.newOutputStream(Paths.get(args[0]));
         } else if (args.length <= 1) {
             out = System.out;
         } else {
@@ -86,9 +74,10 @@ public class MicrophoneSourceConnectorConfig extends AbstractConfig {
         }
 
         try (PrintWriter writer = new PrintWriter(out)) {
-            writer.write(CONFIG_DEF.toEnrichedRst());
+            writer.write(configDef().toEnrichedRst());
             writer.flush();
         }
     }
+
 }
 

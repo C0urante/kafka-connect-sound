@@ -21,7 +21,6 @@ public class Version {
 
     public static final String UNKNOWN_VERSION = "unknown";
 
-
     private static String findVersion() {
         try (InputStream stream = Version.class.getResourceAsStream(PATH)) {
             Properties props = new Properties();
@@ -36,4 +35,5 @@ public class Version {
     public static String get() {
         return VERSION;
     }
+
 }

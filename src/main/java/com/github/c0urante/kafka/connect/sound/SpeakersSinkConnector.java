@@ -7,12 +7,12 @@
 
 package com.github.c0urante.kafka.connect.sound;
 
+import com.github.c0urante.kafka.connect.sound.sink.SpeakersSinkTask;
 import com.github.c0urante.kafka.connect.sound.version.Version;
+import org.apache.kafka.common.config.Config;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
@@ -21,8 +21,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class SpeakersSinkConnector extends SinkConnector {
-
-    private static final Logger log = LoggerFactory.getLogger(SpeakersSinkConnector.class);
 
     private Map<String, String> configProps;
 
@@ -50,11 +48,19 @@ public class SpeakersSinkConnector extends SinkConnector {
 
     @Override
     public ConfigDef config() {
-        return SpeakersSinkConnectorConfig.CONFIG_DEF;
+        return SpeakersSinkConnectorConfig.configDef();
     }
 
     @Override
     public String version() {
         return Version.get();
     }
+
+    @Override
+    public Config validate(Map<String, String> props) {
+        Config result = super.validate(props);
+        AudioConfig.validateFormat(props, result);
+        return result;
+    }
+
 }
