@@ -3,7 +3,7 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.github.c0urante</groupId>
+    <groupId>io.github.c0urante</groupId>
     <artifactId>kafka-connect-sound</artifactId>
     <version>0.3.0-SNAPSHOT</version>
     <packaging>jar</packaging>
@@ -12,6 +12,18 @@
         Kafka Connect connectors for reading data from a microphone into Kafka and writing data from
         Kafka to speakers.
     </description>
+    <url>https://github.com/C0urante/kafka-connect-sound</url>
+
+    <developers>
+        <developer>
+            <id>C0urante</id>
+            <name>Chris Egerton</name>
+            <email>fearthecellos@gmail.com</email>
+            <roles>
+                <role>developer</role>
+            </roles>
+        </developer>
+    </developers>
 
     <repositories>
         <repository>
@@ -19,6 +31,17 @@
             <url>https://repo.apache.maven.org</url>
         </repository>
     </repositories>
+
+    <distributionManagement>
+        <snapshotRepository>
+            <id>ossrh</id>
+            <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
+        </snapshotRepository>
+        <repository>
+            <id>ossrh</id>
+            <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>
+    </distributionManagement>
 
     <licenses>
         <license>
@@ -95,7 +118,7 @@
                         <configuration>
                             <description><![CDATA[
                                 Kafka Connect connectors for reading data from a microphone into Kafka and writing data
-                                from Kafka to speakers, built on top of <a href="http://sox.sourceforge.net">SoX</a>.
+                                from Kafka to speakers.
 
                                 This connector is currently intended for development and entertainment purposes only and
                                 is not recommended or endorsed for production use cases.
@@ -141,10 +164,6 @@
                                 <tag>speakers</tag>
                                 <tag>stream</tag>
                             </tags>
-                            
-                            <requirements>
-                                <requirement>SoX</requirement>
-                            </requirements>
                         </configuration>
                     </execution>
                 </executions>
@@ -155,6 +174,59 @@
                 <artifactId>maven-release-plugin</artifactId>
                 <configuration>
                     <tagNameFormat>v@{version}</tagNameFormat>
+                </configuration>
+            </plugin>
+
+            <!-- Required for releases; may want to pull into separate profile if this bloats build time too much -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>2.2.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>2.9.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>1.5</version>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.sonatype.plugins</groupId>
+                <artifactId>nexus-staging-maven-plugin</artifactId>
+                <version>1.6.7</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <serverId>ossrh</serverId>
+                    <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
+                    <autoReleaseAfterClose>true</autoReleaseAfterClose>
                 </configuration>
             </plugin>
         </plugins>
