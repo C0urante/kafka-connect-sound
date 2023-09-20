@@ -16,9 +16,9 @@ implemented on top of the [Kafka Connect] framework
 ## Overview
 
 These connectors use the [Java sound API] available in the standard library to record and play
-headerless audio of various formats.
+headerless audio with various formats.
 
-Note that an earlier version of these connectors required [SoX] to run; current versions do not.
+Note that earlier versions of these connectors required [SoX] to run; current versions do not.
 
 
 ## Installation
@@ -32,15 +32,24 @@ The connector can be built locally by running the following command:
 mvn package
 ```
 
-and then copying and unzipping the zip archive generated in the `target/components/packages`
-directory onto the plugin path or classpath for your Kafka Connect worker(s).
+Once it's built, copy the JAR file for the connector located in the `target` directory
+(it should be named something like `kafka-connect-sound-${version}.jar`, where
+`${version}` is the current project version) onto the plugin path or classpath for your
+Kafka Connect worker(s).
 
 ### Maven Central
 
-In the near future, new releases will be published to  [Maven Central]. This is
-currently blocked on receiving permission to publish to the `io.github.c0urante`
-namespace, which should be granted in the next few days (those folks tend to be
-very responsive).
+You can view the list of available versions for the connector by browsing its [Maven Central artifacts].
+Once you've picked a version, download the JAR file for that release and copy it
+onto the plugin path or classpath for your Kafka Connect worker(s).
+
+For example, to install version 1.0.0 of the connector, you can download the artifact at
+https://repo.maven.apache.org/maven2/io/github/c0urante/kafka-connect-sound/1.0.0/kafka-connect-sound-1.0.0.jar
+
+Note that this project currently has no extra dependencies (i.e., every dependency
+is already provided by the Kafka Connect runtime), so it's enough to just download
+and deploy the connector JAR. This is also why no fat JAR or Confluent Hub archive
+is published to Maven Central.
 
 ### Confluent Hub
 Releases to Confluent Hub have been discontinued.
@@ -186,15 +195,15 @@ a PR without filing an issue first and tag @C0urante for review.
 - [x] Sink connector that writes to speakers
 - [x] Source connector that reads from a microphone
 - [x] Easy way to read static audio files into Kafka ([Kafka Tools])
-- [ ] Publish to [Maven Central]
+- [x] Publish to [Maven Central]
 
 PRs welcome and encouraged!
 
-[Kafka Connect]: https://docs.confluent.io/current/connect
+[Kafka Connect]: https://kafka.apache.org/documentation.html#connect
 [Apache Kafka]: https://kafka.apache.org
 [Maven Central]: https://search.maven.org
+[Maven Central artifacts]: https://repo.maven.apache.org/maven2/io/github/c0urante/kafka-connect-sound/
 [SoX]: http://sox.sourceforge.net
 [Kafka Tools]: https://github.com/C0urante/kafka-tools
-[ksqlDB]: https://github.com/confluentinc/ksql
 [Java sound API]: https://docs.oracle.com/javase/8/docs/technotes/guides/sound/programmer_guide/contents.html
 [auto.offset.reset]: https://kafka.apache.org/documentation.html#consumerconfigs_auto.offset.reset

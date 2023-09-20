@@ -60,11 +60,18 @@
     <properties>
         <junit.version>4.12</junit.version>
         <kafka.version>2.5.0</kafka.version>
-        <kafka.connect.maven.plugin.version>0.11.2</kafka.connect.maven.plugin.version>
+        <slf4j.version>1.7.9</slf4j.version>
+
+        <exec.plugin.version>1.6.0</exec.plugin.version>
         <maven.clean.plugin.version>3.1.0</maven.clean.plugin.version>
         <maven.compiler.plugin.version>3.8.0</maven.compiler.plugin.version>
+        <maven.gpg.plugin.version>1.5</maven.gpg.plugin.version>
+        <maven.javadoc.plugin.version>2.9.1</maven.javadoc.plugin.version>
+        <maven.release.plugin.version>3.0.1</maven.release.plugin.version>
+        <maven.source.plugin.version>2.2.1</maven.source.plugin.version>
+        <nexus.plugin.version>1.6.7</nexus.plugin.version>
+
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <slf4j.version>1.7.9</slf4j.version>
 
         <docs.dir>${project.basedir}/docs</docs.dir>
         <docs.config.file>connector-config</docs.config.file>
@@ -106,122 +113,33 @@
             </plugin>
 
             <plugin>
-                <groupId>io.confluent</groupId>
-                <artifactId>kafka-connect-maven-plugin</artifactId>
-                <version>${kafka.connect.maven.plugin.version}</version>
-                <executions>
-                    <execution>
-                        <id>Confluent Hub package</id>
-                        <goals>
-                            <goal>kafka-connect</goal>
-                        </goals>
-                        <configuration>
-                            <description><![CDATA[
-                                Kafka Connect connectors for reading data from a microphone into Kafka and writing data
-                                from Kafka to speakers.
-
-                                This connector is currently intended for development and entertainment purposes only and
-                                is not recommended or endorsed for production use cases.
-                            ]]></description>
-                            <documentationUrl>${project.scm.url}</documentationUrl>
-                            <sourceUrl>${project.scm.url}</sourceUrl>
-                            <logo>${project.basedir}/logos/audio.jpg</logo>
-
-                            <ownerUsername>C0urante</ownerUsername>
-                            <ownerName>Chris Egerton</ownerName>
-                            <ownerType>user</ownerType>
-                            <ownerLogo>${project.basedir}/logos/aku.jpeg</ownerLogo>
-
-                            <supportProviderName>Open Source Community</supportProviderName>
-                            <supportUrl>${project.scm.url}/issues</supportUrl>
-                            <supportSummary>
-                                This is an open-source project supported and maintained on a best-effort by the
-                                community and its creator.
-                            </supportSummary>
-                            <supportLogo>${project.basedir}/logos/github.png</supportLogo>
-
-                            <componentTypes>
-                                <componentType>source</componentType>
-                                <componentType>sink</componentType>
-                            </componentTypes>
-
-                            <confluentControlCenterIntegration>true</confluentControlCenterIntegration>
-
-                            <licenses>
-                                <license>
-                                    <name>DWTFPL Version 2</name>
-                                    <url>http://www.wtfpl.net/txt/copying/</url>
-                                    <logo>${project.basedir}/logos/wtfpl.png</logo>
-                                </license>
-                            </licenses>
-
-                            <tags>
-                                <tag>sound</tag>
-                                <tag>music</tag>
-                                <tag>audio</tag>
-                                <tag>noise</tag>
-                                <tag>microphone</tag>
-                                <tag>speakers</tag>
-                                <tag>stream</tag>
-                            </tags>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-release-plugin</artifactId>
+                <version>${maven.release.plugin.version}</version>
                 <configuration>
                     <tagNameFormat>v@{version}</tagNameFormat>
                 </configuration>
             </plugin>
 
-            <!-- Required for releases; may want to pull into separate profile if this bloats build time too much -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
-                <version>2.2.1</version>
-                <executions>
-                    <execution>
-                        <id>attach-sources</id>
-                        <goals>
-                            <goal>jar-no-fork</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                <version>${maven.source.plugin.version}</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>2.9.1</version>
-                <executions>
-                    <execution>
-                        <id>attach-javadocs</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                <version>${maven.javadoc.plugin.version}</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-gpg-plugin</artifactId>
-                <version>1.5</version>
-                <executions>
-                    <execution>
-                        <id>sign-artifacts</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>sign</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                <version>${maven.gpg.plugin.version}</version>
             </plugin>
             <plugin>
                 <groupId>org.sonatype.plugins</groupId>
                 <artifactId>nexus-staging-maven-plugin</artifactId>
-                <version>1.6.7</version>
+                <version>${nexus.plugin.version}</version>
                 <extensions>true</extensions>
                 <configuration>
                     <serverId>ossrh</serverId>
@@ -264,7 +182,7 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>exec-maven-plugin</artifactId>
-                        <version>1.6.0</version>
+                        <version>${exec.plugin.version}</version>
                         <executions>
                             <execution>
                                 <id>source-config-rst</id>
@@ -363,5 +281,53 @@
                 </plugins>
             </build>
         </profile>
+
+        <profile>
+            <id>release</id>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-source-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>attach-sources</id>
+                                    <goals>
+                                        <goal>jar-no-fork</goal>
+                                    </goals>
+                                </execution>
+                            </executions>
+                        </plugin>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-javadoc-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>attach-javadocs</id>
+                                    <goals>
+                                        <goal>jar</goal>
+                                    </goals>
+                                </execution>
+                            </executions>
+                        </plugin>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-gpg-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>sign-artifacts</id>
+                                    <phase>verify</phase>
+                                    <goals>
+                                        <goal>sign</goal>
+                                    </goals>
+                                </execution>
+                            </executions>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
+
     </profiles>
 </project>
