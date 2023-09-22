@@ -119,7 +119,6 @@ public class SpeakersSinkTask extends SinkTask {
         if (i < samples.length) {
             log.trace("Buffering {} remaining samples", samples.length - i);
             buffer.put(samples, i, samples.length - i);
-            putBufferedSamples();
         }
     }
 
