@@ -70,9 +70,8 @@ class AudioReadThread extends ConnectorThread {
     }
 
     public void shutDown() throws InterruptedException {
-        if (stopped.getAndSet(true)) {
+        if (stopped.getAndSet(true))
             return;
-        }
 
         microphone.shutDown();
         interrupt();
