@@ -9,7 +9,6 @@ package com.github.c0urante.kafka.connect.sound.sink;
 
 import com.github.c0urante.kafka.connect.sound.SpeakersSinkConnectorConfig;
 import com.github.c0urante.kafka.connect.sound.version.Version;
-
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.DataException;
@@ -27,8 +26,7 @@ public class SpeakersSinkTask extends SinkTask {
 
     private static final Logger log = LoggerFactory.getLogger(SpeakersSinkTask.class);
 
-    private ByteBuffer buffer;
-    private AudioWriteThread writeThread;
+    private Speakers speakers;
 
     @Override
     public void start(Map<String, String> props) {
@@ -37,18 +35,12 @@ public class SpeakersSinkTask extends SinkTask {
 
         int bufferSize = config.audio().bufferSize();
 
-        this.buffer = ByteBuffer.allocate(bufferSize);
-
-        Speakers speakers = new Speakers(config.audio().format(), bufferSize);
-        this.writeThread = new AudioWriteThread(speakers);
-        this.writeThread.start();
+        this.speakers = new Speakers(config.audio().format(), bufferSize);
         log.info("Starting task");
     }
 
     @Override
     public void put(Collection<SinkRecord> records) {
-        writeThread.checkForFailure();
-
         log.debug("Received {} records", records.size());
         long totalBytes = 0;
         for (SinkRecord record : records) {
@@ -68,10 +60,10 @@ public class SpeakersSinkTask extends SinkTask {
             }
 
             totalBytes += bytesValue.length;
-            bufferSamples(bytesValue);
+            speakers.play(bytesValue);
         }
 
-        log.debug("Buffered {} total samples", totalBytes);
+        log.debug("Wrote {} total samples", totalBytes);
     }
 
     @Override
@@ -83,52 +75,13 @@ public class SpeakersSinkTask extends SinkTask {
     @Override
     public void stop() {
         log.info("Shutting down task");
-        try {
-            writeThread.shutDown();
-            log.info("Task finished shutdown");
-        } catch (InterruptedException e) {
-            log.warn("Interrupted while waiting for write thread to shut down", e);
-        }
+        speakers.shutDown();
+        log.info("Task finished shutdown");
     }
 
     @Override
     public String version() {
         return Version.get();
-    }
-
-    private void bufferSamples(byte[] samples) {
-        log.trace("Received {} samples in Kafka record", samples.length);
-
-        int i;
-        if (samples.length >= buffer.remaining()) {
-            log.trace("Number of samples ({}) is greater than or equal to remaining space ({}) in buffer", samples.length, buffer.remaining());
-            i = buffer.remaining();
-            buffer.put(samples, 0, buffer.remaining());
-            putBufferedSamples();
-        } else {
-            i = 0;
-        }
-
-        while (samples.length - i >= buffer.capacity()) {
-            log.trace("Number of remaining samples ({}) is greater than or equal to capacity ({}) of buffer", samples.length - i, buffer.capacity());
-            buffer.put(samples, i, buffer.capacity());
-            putBufferedSamples();
-            i += buffer.capacity();
-        }
-
-        if (i < samples.length) {
-            log.trace("Buffering {} remaining samples", samples.length - i);
-            buffer.put(samples, i, samples.length - i);
-        }
-    }
-
-    private void putBufferedSamples() {
-        byte[] bufferedSamples = buffer.array();
-        // Have to clone the contents of the buffer in order to prevent subsequent buffering from mutating it
-        byte[] samplesClone = new byte[buffer.position()];
-        System.arraycopy(bufferedSamples, 0, samplesClone, 0, samplesClone.length);
-        writeThread.put(samplesClone);
-        buffer.clear();
     }
 
 }
